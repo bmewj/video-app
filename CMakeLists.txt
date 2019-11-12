@@ -22,5 +22,10 @@ else()
     )
 endif()
 
-add_executable(video-app src/main.cpp)
+list(APPEND SOURCES
+    src/main.cpp
+    src/load_frame.cpp
+)
+
+add_executable(video-app ${SOURCES})
 target_link_libraries(video-app FFmpeg glfw ${EXTRA_LIBS})

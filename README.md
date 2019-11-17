@@ -10,25 +10,13 @@ from webcams/capture cards/live streams.
 
 [This video explains the function of the app in detail.](https://www.youtube.com/watch?v=xSPXzwI9Czk)
 
-### Programming live streams
+## Programming live streams
 
 This app is being developed live on weekly Youtube live-streams. They are announced ahead of time on [my Youtube channel](https://www.youtube.com/channel/UClZL_faO7lGe6nM9MH-uu6A). You can also find all the previous streams on the [C++ Real-time video processing playlist](https://www.youtube.com/playlist?list=PLKucWgGjAuTbobNC28EaR9lbGQTVyD9IS)
 
-### Installation
+## Installation
 
-#### 1. Clone
-
-```sh
-git clone https://github.com/bartjoyce/video-app --recursive
-```
-
-The repository includes a submodule for GLFW, so make sure to *recursively* clone the repo. If CMake complains and says it can't find GLFW, it might be because you did not clone it properly. In that case, try:
-
-```sh
-git submodule update --init
-```
-
-#### 2. Prerequisites
+### 1. Prerequisites
 
 This app has 4 external dependencies:
 
@@ -42,7 +30,19 @@ On MacOS using Homebrew, run:
 brew install cmake ffmpeg pkg-config
 ```
 
-#### 3. Build
+### 2. Clone
+
+```sh
+git clone https://github.com/bartjoyce/video-app --recursive
+```
+
+The repository includes a submodule for GLFW, so make sure to *recursively* clone the repo. If CMake complains and says it can't find GLFW, it might be because you did not clone it properly. In that case, try:
+
+```sh
+git submodule update --init
+```
+
+### 3. Build
 
 Inside the repo, create a build directory and run CMake within it:
 
@@ -53,13 +53,13 @@ cmake ..
 make
 ```
 
-#### 4. Run
+### 4. Run
 
 ```sh
 ./video-app
 ```
 
-### Bonus: Webcam capture with AVFoundation
+## Bonus: Webcam capture with AVFoundation
 
 For webcam capture:
 

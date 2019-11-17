@@ -58,16 +58,17 @@ int main(int argc, const char** argv) {
             return 1;
         }
 
-        static bool first_frame = true;
-        if (first_frame) {
-            glfwSetTime(0.0);
-            first_frame = false;
-        }
+        // Cannot use PTS synchronisation when streaming from avfoundation.
+        // static bool first_frame = true;
+        // if (first_frame) {
+        //     glfwSetTime(0.0);
+        //     first_frame = false;
+        // }
 
-        double pt_in_seconds = pts * (double)vr_state.time_base.num / (double)vr_state.time_base.den;
-        while (pt_in_seconds > glfwGetTime()) {
-            glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
-        }
+        // double pt_in_seconds = pts * (double)vr_state.time_base.num / (double)vr_state.time_base.den;
+        // while (pt_in_seconds > glfwGetTime()) {
+        //     glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
+        // }
 
         glBindTexture(GL_TEXTURE_2D, tex_handle);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame_width, frame_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame_data);

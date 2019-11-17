@@ -1,6 +1,11 @@
 #include "video_reader.hpp"
+extern "C" {
+#include <libavdevice/avdevice.h>
+}
 
 bool video_reader_open(VideoReaderState* state, const char* filename) {
+
+    avdevice_register_all();
 
     // Unpack members of state
     auto& width = state->width;
@@ -19,7 +24,17 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
         return false;
     }
 
-    if (avformat_open_input(&av_format_ctx, filename, NULL, NULL) != 0) {
+    AVInputFormat* av_input_format = av_find_input_format("avfoundation");
+    if (!av_input_format) {
+        printf("Couldn't find AVFoundation input format to get webcam\n");
+        return false;
+    }
+
+    AVDictionary* options = NULL;
+    av_dict_set(&options, "framerate", "25", 0);
+    av_dict_set(&options, "pix_fmt", "rgb0", 0);
+
+    if (avformat_open_input(&av_format_ctx, "0:none", av_input_format, &options) != 0) {
         printf("Couldn't open video file\n");
         return false;
     }

@@ -135,6 +135,49 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
     return true;
 }
 
+bool video_reader_seek_frame(VideoReaderState* state, int64_t ts) {
+    
+    // Unpack members of state
+    auto& av_format_ctx = state->av_format_ctx;
+    auto& av_codec_ctx = state->av_codec_ctx;
+    auto& video_stream_index = state->video_stream_index;
+    auto& av_packet = state->av_packet;
+    auto& av_frame = state->av_frame;
+    
+    av_seek_frame(av_format_ctx, video_stream_index, ts, AVSEEK_FLAG_BACKWARD);
+
+    // av_seek_frame takes effect after one frame, so I'm decoding one here
+    // so that the next call to video_reader_read_frame() will give the correct
+    // frame
+    int response;
+    while (av_read_frame(av_format_ctx, av_packet) >= 0) {
+        if (av_packet->stream_index != video_stream_index) {
+            av_packet_unref(av_packet);
+            continue;
+        }
+
+        response = avcodec_send_packet(av_codec_ctx, av_packet);
+        if (response < 0) {
+            printf("Failed to decode packet: %s\n", av_err2str(response));
+            return false;
+        }
+
+        response = avcodec_receive_frame(av_codec_ctx, av_frame);
+        if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+            av_packet_unref(av_packet);
+            continue;
+        } else if (response < 0) {
+            printf("Failed to decode packet: %s\n", av_err2str(response));
+            return false;
+        }
+
+        av_packet_unref(av_packet);
+        break;
+    }
+
+    return true;
+}
+
 void video_reader_close(VideoReaderState* state) {
     sws_freeContext(state->sws_scaler_ctx);
     avformat_close_input(&state->av_format_ctx);

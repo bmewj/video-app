@@ -72,3 +72,13 @@ make
 ```
 
 This will use AVFoundation to display your webcam on the OpenGL surface.
+
+## Todo
+
+- Fix `av_err2str` build problem in gcc ([see issue](https://github.com/joncampbell123/composite-video-simulator/issues/5)).
+- Fix `YUVJ` deprecation problem
+- Fix `sws_scale()` segmentation fault on gcc due to badly constructed output buffers
+- Consider switch to SDL?
+- Replace `sws_scale()` with hardware-accelerated alternative 
+- Audio playback
+- Playback of multiple videos simultaneously

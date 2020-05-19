@@ -1,5 +1,13 @@
 #include "video_reader.hpp"
 
+// av_err2str returns a temporary array. This doesn't work in gcc.
+// This function can be used as a replacement for av_err2str.
+static const char* av_make_error(int errnum) {
+    static char str[AV_ERROR_MAX_STRING_SIZE];
+    memset(str, 0, sizeof(str));
+    return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
+}
+
 bool video_reader_open(VideoReaderState* state, const char* filename) {
 
     // Unpack members of state
@@ -98,7 +106,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
 
         response = avcodec_send_packet(av_codec_ctx, av_packet);
         if (response < 0) {
-            printf("Failed to decode packet: %s\n", av_err2str(response));
+            printf("Failed to decode packet: %s\n", av_make_error(response));
             return false;
         }
 
@@ -107,7 +115,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
             av_packet_unref(av_packet);
             continue;
         } else if (response < 0) {
-            printf("Failed to decode packet: %s\n", av_err2str(response));
+            printf("Failed to decode packet: %s\n", av_make_error(response));
             return false;
         }
 
@@ -158,7 +166,7 @@ bool video_reader_seek_frame(VideoReaderState* state, int64_t ts) {
 
         response = avcodec_send_packet(av_codec_ctx, av_packet);
         if (response < 0) {
-            printf("Failed to decode packet: %s\n", av_err2str(response));
+            printf("Failed to decode packet: %s\n", av_make_error(response));
             return false;
         }
 
@@ -167,7 +175,7 @@ bool video_reader_seek_frame(VideoReaderState* state, int64_t ts) {
             av_packet_unref(av_packet);
             continue;
         } else if (response < 0) {
-            printf("Failed to decode packet: %s\n", av_err2str(response));
+            printf("Failed to decode packet: %s\n", av_make_error(response));
             return false;
         }
 

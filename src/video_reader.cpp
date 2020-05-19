@@ -127,7 +127,28 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
     
     // Set up sws scaler
     if (!sws_scaler_ctx) {
-        sws_scaler_ctx = sws_getContext(width, height, av_codec_ctx->pix_fmt,
+        auto source_pix_fmt = av_codec_ctx->pix_fmt;
+        
+        // Fix swscaler deprecated pixel format warning
+        // (YUVJ has been deprecated, change pixel format to regular YUV)
+        switch (source_pix_fmt) {
+            case AV_PIX_FMT_YUVJ420P:
+                source_pix_fmt = AV_PIX_FMT_YUV420P;
+                break;
+            case AV_PIX_FMT_YUVJ422P:
+                source_pix_fmt = AV_PIX_FMT_YUV422P;
+                break;
+            case AV_PIX_FMT_YUVJ444P:
+                source_pix_fmt = AV_PIX_FMT_YUV444P;
+                break;
+            case AV_PIX_FMT_YUVJ440P:
+                source_pix_fmt = AV_PIX_FMT_YUV440P;
+                break;
+            default:
+                break;
+        }
+
+        sws_scaler_ctx = sws_getContext(width, height, source_pix_fmt,
                                         width, height, AV_PIX_FMT_RGB0,
                                         SWS_BILINEAR, NULL, NULL, NULL);
     }

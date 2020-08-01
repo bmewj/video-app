@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
-project(video-app C CXX)
+project(video-app
+        VERSION 1.0.0
+        LANGUAGE C CXX)
 set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(lib/glfw)
@@ -13,7 +15,7 @@ list(APPEND SOURCES
     src/video_reader.hpp
 )
 
-add_executable(video-app MACOSX_BUNDLE WIN32 ${SOURCES})
+add_executable(${PROJECT_NAME} MACOSX_BUNDLE WIN32 ${SOURCES})
 
 if(APPLE)
     list(APPEND EXTRA_LIBS
@@ -40,4 +42,8 @@ else()
     )
 endif()
 
-target_link_libraries(video-app FFmpeg glfw ${EXTRA_LIBS})
+target_link_libraries(video-app
+  FFmpeg
+  glfw
+  ${EXTRA_LIBS}
+)

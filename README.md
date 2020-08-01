@@ -30,6 +30,19 @@ On MacOS using Homebrew, run:
 brew install cmake ffmpeg pkg-config
 ```
 
+On Linux (may be specific to Ubuntu Focal)
+
+```sh
+sudo apt-get install ffmpeg \
+    libavformat-dev \
+    libavutil-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavfilter-dev \
+    libswresample-dev \
+    libswscale-dev
+```    
+
 ### 2. Clone
 
 ```sh
@@ -44,14 +57,26 @@ git submodule update --init
 
 ### 3. Build
 
-Inside the repo, create a build directory and run CMake within it:
+In build
+cmake ..
+make
+```side the repo, create a build directory and run CMake within it:
 
 ```sh
 mkdir build
 cd build
 cmake ..
 make
+cd ../bin
 ```
+OR
+
+```sh
+bash build.sh
+```
+
+note:
+    Always check bash scripts before running it.
 
 ### 4. Run
 
@@ -71,6 +96,12 @@ make
 ./video-app
 ```
 
+OR
+
+```sh
+bash build.sh
+```
+
 This will use AVFoundation to display your webcam on the OpenGL surface.
 
 ## Todo
@@ -79,6 +110,7 @@ This will use AVFoundation to display your webcam on the OpenGL surface.
 - Fix `YUVJ` deprecation problem
 - Fix `sws_scale()` segmentation fault on gcc due to badly constructed output buffers
 - Consider switch to SDL?
+    (thoughts on switching to modern opengl + multiple graphics API abstraction)
 - Replace `sws_scale()` with hardware-accelerated alternative 
 - Audio playback
 - Playback of multiple videos simultaneously

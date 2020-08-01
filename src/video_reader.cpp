@@ -3,6 +3,14 @@ extern "C" {
 #include <libavdevice/avdevice.h>
 }
 
+// av_err2str returns a temporary array. This doesn't work in gcc.
+// This function can be used as a replacement for av_err2str.
+static const char* av_make_error(int errnum) {
+    static char str[AV_ERROR_MAX_STRING_SIZE];
+    memset(str, 0, sizeof(str));
+    return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
+}
+
 bool video_reader_open(VideoReaderState* state, const char* filename) {
 
     avdevice_register_all();
@@ -113,7 +121,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
 
         response = avcodec_send_packet(av_codec_ctx, av_packet);
         if (response < 0) {
-            printf("Failed to decode packet: %s\n", av_err2str(response));
+            printf("Failed to decode packet: %s\n", av_make_error(response));
             return false;
         }
 
@@ -122,7 +130,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
             av_packet_unref(av_packet);
             continue;
         } else if (response < 0) {
-            printf("Failed to decode packet: %s\n", av_err2str(response));
+            printf("Failed to decode packet: %s\n", av_make_error(response));
             return false;
         }
 
@@ -146,6 +154,49 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
     uint8_t* dest[4] = { frame_buffer, NULL, NULL, NULL };
     int dest_linesize[4] = { width * 4, 0, 0, 0 };
     sws_scale(sws_scaler_ctx, av_frame->data, av_frame->linesize, 0, av_frame->height, dest, dest_linesize);
+
+    return true;
+}
+
+bool video_reader_seek_frame(VideoReaderState* state, int64_t ts) {
+    
+    // Unpack members of state
+    auto& av_format_ctx = state->av_format_ctx;
+    auto& av_codec_ctx = state->av_codec_ctx;
+    auto& video_stream_index = state->video_stream_index;
+    auto& av_packet = state->av_packet;
+    auto& av_frame = state->av_frame;
+    
+    av_seek_frame(av_format_ctx, video_stream_index, ts, AVSEEK_FLAG_BACKWARD);
+
+    // av_seek_frame takes effect after one frame, so I'm decoding one here
+    // so that the next call to video_reader_read_frame() will give the correct
+    // frame
+    int response;
+    while (av_read_frame(av_format_ctx, av_packet) >= 0) {
+        if (av_packet->stream_index != video_stream_index) {
+            av_packet_unref(av_packet);
+            continue;
+        }
+
+        response = avcodec_send_packet(av_codec_ctx, av_packet);
+        if (response < 0) {
+            printf("Failed to decode packet: %s\n", av_make_error(response));
+            return false;
+        }
+
+        response = avcodec_receive_frame(av_codec_ctx, av_frame);
+        if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+            av_packet_unref(av_packet);
+            continue;
+        } else if (response < 0) {
+            printf("Failed to decode packet: %s\n", av_make_error(response));
+            return false;
+        }
+
+        av_packet_unref(av_packet);
+        break;
+    }
 
     return true;
 }

@@ -57,10 +57,7 @@ git submodule update --init
 
 ### 3. Build
 
-In build
-cmake ..
-make
-```side the repo, create a build directory and run CMake within it:
+In build side the repo, create a build directory and run CMake within it:
 
 ```sh
 mkdir build
@@ -69,6 +66,7 @@ cmake ..
 make
 cd ../bin
 ```
+
 OR
 
 ```sh

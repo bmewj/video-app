@@ -39,7 +39,7 @@ if(APPLE)
         ${CMAKE_CURRENT_BINARY_DIR}/assets/MacOSXBundleInfo.plist
     )
 
-    set_target_properties(video-app PROPERTIES
+    set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/assets/MacOSXBundleInfo.plist
     )
 
@@ -54,7 +54,7 @@ else()
     )
 endif()
 
-target_link_libraries(video-app
+target_link_libraries(${PROJECT_NAME}
   FFmpeg
   glfw
   ${EXTRA_LIBS}

@@ -4,8 +4,8 @@ fi
 
 cd build
 cmake \
-    -DCMAKE_CXX_COMPILER="clang++" \
     -DCMAKE_BUILD_TYPE=DEBUG \
+    -DCMAKE_CXX_COMPILER="clang++" \
     ..
 make
 cd ..

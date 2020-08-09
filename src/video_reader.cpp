@@ -13,7 +13,7 @@ static const char* av_make_error(int errnum) {
     return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
 }
 
-bool video_reader_open(VideoReaderState* state, const char* file_nname) {
+bool video_reader_open(VideoReaderState* state, const char* file_name) {
 
     avdevice_register_all();
     av_register_all();
@@ -35,7 +35,7 @@ bool video_reader_open(VideoReaderState* state, const char* file_nname) {
         return false;
     }
 
-    auto file_nname = "/dev/video1";
+    auto device_name = "/dev/video1";
     auto format = "v4l2";
     auto input_format = av_find_input_format(format);
     if (!input_format)
@@ -54,7 +54,7 @@ bool video_reader_open(VideoReaderState* state, const char* file_nname) {
     av_dict_set(&options, "framerate", "25", 0);
     av_dict_set(&options, "pix_fmt", "rgb0", 0);
 
-    if (avformat_open_input(&av_format_ctx, file_nname, av_input_format, &options) != 0) {
+    if (avformat_open_input(&av_format_ctx, device_name, av_input_format, &options) != 0) {
         printf("Couldn't open video file\n");
         return false;
     }

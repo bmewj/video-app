@@ -17,7 +17,7 @@ int main(int argc, const char** argv) {
     }
 
     VideoReaderState vr_state;
-    if (!video_reader_open(&vr_state, "/Users/bmj/Desktop/SPACE ECHO.mov")) {
+    if (!video_reader_open(&vr_state, "/home/gian/Videos/Webcam/2020-07-13-154438.webm")) {
         printf("Couldn't open video file\n");
         return 1;
     }

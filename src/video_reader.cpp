@@ -1,4 +1,9 @@
 #include "video_reader.hpp"
+extern "C" {
+#include <libavdevice/avdevice.h>
+}
+
+#include <iostream>
 
 // av_err2str returns a temporary array. This doesn't work in gcc.
 // This function can be used as a replacement for av_err2str.
@@ -8,7 +13,10 @@ static const char* av_make_error(int errnum) {
     return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
 }
 
-bool video_reader_open(VideoReaderState* state, const char* filename) {
+bool video_reader_open(VideoReaderState* state, const char* file_name) {
+
+    avdevice_register_all();
+    av_register_all();
 
     // Unpack members of state
     auto& width = state->width;
@@ -27,7 +35,26 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
         return false;
     }
 
-    if (avformat_open_input(&av_format_ctx, filename, NULL, NULL) != 0) {
+    auto device_name = "/dev/video1";
+    auto format = "v4l2";
+    auto input_format = av_find_input_format(format);
+    if (!input_format)
+    {
+        std::cerr << "Unknown input format: " << format << std::endl;
+        return 1;
+    }
+
+    AVInputFormat* av_input_format = av_find_input_format(format);
+    if (!av_input_format) {
+        printf("Couldn't find AVFoundation input format to get webcam\n");
+        return false;
+    }
+
+    AVDictionary* options = NULL;
+    av_dict_set(&options, "framerate", "25", 0);
+    av_dict_set(&options, "pix_fmt", "rgb0", 0);
+
+    if (avformat_open_input(&av_format_ctx, device_name, av_input_format, &options) != 0) {
         printf("Couldn't open video file\n");
         return false;
     }

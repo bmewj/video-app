@@ -17,7 +17,7 @@ int main(int argc, const char** argv) {
     }
 
     VideoReaderState vr_state;
-    if (!video_reader_open(&vr_state, "/Users/bmj/Desktop/SPACE ECHO.mov")) {
+    if (!video_reader_open(&vr_state, "/home/gian/Videos/Webcam/2020-07-13-154438.webm")) {
         printf("Couldn't open video file\n");
         return 1;
     }
@@ -56,37 +56,6 @@ int main(int argc, const char** argv) {
         if (!video_reader_read_frame(&vr_state, frame_data, &pts)) {
             printf("Couldn't load video frame\n");
             return 1;
-        }
-
-        static bool first_frame = true;
-        if (first_frame) {
-            glfwSetTime(0.0);
-            first_frame = false;
-        }
-
-        double pt_in_seconds = pts * (double)vr_state.time_base.num / (double)vr_state.time_base.den;
-        while (pt_in_seconds > glfwGetTime()) {
-            glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
-        }
-
-        // Skip at 5s to 15s
-        static bool skipped_1 = false;
-        if (pt_in_seconds > 5.0 && !skipped_1) {
-            skipped_1 = true;
-            glfwSetTime(15.0);
-            pt_in_seconds = 15.0;
-            pts = (int64_t)(pt_in_seconds * (double)vr_state.time_base.den / (double)vr_state.time_base.num);
-            video_reader_seek_frame(&vr_state, pts);
-        }
-
-        // Skip at 20s to 6s
-        static bool skipped_2 = false;
-        if (pt_in_seconds > 20.0 && !skipped_2) {
-            skipped_2 = true;
-            glfwSetTime(6.0);
-            pt_in_seconds = 6.0;
-            pts = (int64_t)(pt_in_seconds * (double)vr_state.time_base.den / (double)vr_state.time_base.num);
-            video_reader_seek_frame(&vr_state, pts);
         }
 
         glBindTexture(GL_TEXTURE_2D, tex_handle);

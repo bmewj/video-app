@@ -75,26 +75,6 @@ int main(int argc, const char** argv) {
             glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
         }
 
-        // Skip at 5s to 15s
-        static bool skipped_1 = false;
-        if (pt_in_seconds > 5.0 && !skipped_1) {
-            skipped_1 = true;
-            glfwSetTime(15.0);
-            pt_in_seconds = 15.0;
-            pts = (int64_t)(pt_in_seconds * (double)vr_state.time_base.den / (double)vr_state.time_base.num);
-            video_reader_seek_frame(&vr_state, pts);
-        }
-
-        // Skip at 20s to 6s
-        static bool skipped_2 = false;
-        if (pt_in_seconds > 20.0 && !skipped_2) {
-            skipped_2 = true;
-            glfwSetTime(6.0);
-            pt_in_seconds = 6.0;
-            pts = (int64_t)(pt_in_seconds * (double)vr_state.time_base.den / (double)vr_state.time_base.num);
-            video_reader_seek_frame(&vr_state, pts);
-        }
-
         glBindTexture(GL_TEXTURE_2D, tex_handle);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame_width, frame_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame_data);
 

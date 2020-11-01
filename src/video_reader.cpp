@@ -8,6 +8,18 @@ static const char* av_make_error(int errnum) {
     return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
 }
 
+static AVPixelFormat correct_for_deprecated_pixel_format(AVPixelFormat pix_fmt) {
+    // Fix swscaler deprecated pixel format warning
+    // (YUVJ has been deprecated, change pixel format to regular YUV)
+    switch (pix_fmt) {
+        case AV_PIX_FMT_YUVJ420P: return AV_PIX_FMT_YUV420P;
+        case AV_PIX_FMT_YUVJ422P: return AV_PIX_FMT_YUV422P;
+        case AV_PIX_FMT_YUVJ444P: return AV_PIX_FMT_YUV444P;
+        case AV_PIX_FMT_YUVJ440P: return AV_PIX_FMT_YUV440P;
+        default:                  return pix_fmt;
+    }
+}
+
 bool video_reader_open(VideoReaderState* state, const char* filename) {
 
     // Unpack members of state
@@ -127,27 +139,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
     
     // Set up sws scaler
     if (!sws_scaler_ctx) {
-        auto source_pix_fmt = av_codec_ctx->pix_fmt;
-        
-        // Fix swscaler deprecated pixel format warning
-        // (YUVJ has been deprecated, change pixel format to regular YUV)
-        switch (source_pix_fmt) {
-            case AV_PIX_FMT_YUVJ420P:
-                source_pix_fmt = AV_PIX_FMT_YUV420P;
-                break;
-            case AV_PIX_FMT_YUVJ422P:
-                source_pix_fmt = AV_PIX_FMT_YUV422P;
-                break;
-            case AV_PIX_FMT_YUVJ444P:
-                source_pix_fmt = AV_PIX_FMT_YUV444P;
-                break;
-            case AV_PIX_FMT_YUVJ440P:
-                source_pix_fmt = AV_PIX_FMT_YUV440P;
-                break;
-            default:
-                break;
-        }
-
+        auto source_pix_fmt = correct_for_deprecated_pixel_format(av_codec_ctx->pix_fmt);
         sws_scaler_ctx = sws_getContext(width, height, source_pix_fmt,
                                         width, height, AV_PIX_FMT_RGB0,
                                         SWS_BILINEAR, NULL, NULL, NULL);

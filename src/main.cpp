@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <GLFW/glfw3.h>
 #include "video_reader.hpp"
 
@@ -36,9 +37,14 @@ int main(int argc, const char** argv) {
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     // Allocate frame buffer
+    constexpr int ALIGNMENT = 128;
     const int frame_width = vr_state.width;
     const int frame_height = vr_state.height;
-    uint8_t* frame_data = new uint8_t[frame_width * frame_height * 4];
+    uint8_t* frame_data;
+    if (posix_memalign((void**)&frame_data, ALIGNMENT, frame_width * frame_height * 4) != 0) {
+        printf("Couldn't allocate frame buffer\n");
+        return 1;
+    }
     
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

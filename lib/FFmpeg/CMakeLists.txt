@@ -11,21 +11,13 @@ pkg_check_modules(SWRESAMPLE  REQUIRED IMPORTED_TARGET libswresample)
 pkg_check_modules(SWSCALE     REQUIRED IMPORTED_TARGET libswscale)
 
 add_library(FFmpeg INTERFACE IMPORTED GLOBAL)
-target_include_directories(FFmpeg INTERFACE
-    ${AVCODEC_INCLUDE_DIRS}
-    ${AVFORMAT_INCLUDE_DIRS}
-    ${AVFILTER_INCLUDE_DIRS}
-    ${AVDEVICE_INCLUDE_DIRS}
-    ${AVUTIL_INCLUDE_DIRS}
-    ${SWRESAMPLE_INCLUDE_DIRS}
-    ${SWSCALE_INCLUDE_DIRS}
-)
-target_link_options(FFmpeg INTERFACE
-    ${AVCODEC_LDFLAGS}
-    ${AVFORMAT_LDFLAGS}
-    ${AVFILTER_LDFLAGS}
-    ${AVDEVICE_LDFLAGS}
-    ${AVUTIL_LDFLAGS}
-    ${SWRESAMPLE_LDFLAGS}
-    ${SWSCALE_LDFLAGS}
+
+target_link_libraries(FFmpeg INTERFACE
+    PkgConfig::AVCODEC
+    PkgConfig::AVFORMAT
+    PkgConfig::AVFILTER
+    PkgConfig::AVDEVICE
+    PkgConfig::AVUTIL
+    PkgConfig::SWRESAMPLE
+    PkgConfig::SWSCALE
 )

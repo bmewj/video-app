@@ -1,4 +1,5 @@
 #include "video_reader.hpp"
+#include <assert.h>
 
 // av_err2str returns a temporary array. This doesn't work in gcc.
 // This function can be used as a replacement for av_err2str.
@@ -96,7 +97,7 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
     return true;
 }
 
-bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int64_t* pts) {
+bool video_reader_read_frame(VideoReaderState* state, int64_t* pts) {
 
     // Unpack members of state
     auto& width = state->width;
@@ -106,7 +107,6 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
     auto& video_stream_index = state->video_stream_index;
     auto& av_frame = state->av_frame;
     auto& av_packet = state->av_packet;
-    auto& sws_scaler_ctx = state->sws_scaler_ctx;
 
     // Decode one frame
     int response;
@@ -136,22 +136,10 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
     }
 
     *pts = av_frame->pts;
-    
-    // Set up sws scaler
-    if (!sws_scaler_ctx) {
-        auto source_pix_fmt = correct_for_deprecated_pixel_format(av_codec_ctx->pix_fmt);
-        sws_scaler_ctx = sws_getContext(width, height, source_pix_fmt,
-                                        width, height, AV_PIX_FMT_RGB0,
-                                        SWS_BILINEAR, NULL, NULL, NULL);
-    }
-    if (!sws_scaler_ctx) {
-        printf("Couldn't initialize sw scaler\n");
-        return false;
-    }
 
-    uint8_t* dest[4] = { frame_buffer, NULL, NULL, NULL };
-    int dest_linesize[4] = { width * 4, 0, 0, 0 };
-    sws_scale(sws_scaler_ctx, av_frame->data, av_frame->linesize, 0, av_frame->height, dest, dest_linesize);
+    auto source_pix_fmt = correct_for_deprecated_pixel_format(av_codec_ctx->pix_fmt);
+    assert(source_pix_fmt == AV_PIX_FMT_YUV420P);
+    // Can only support YUV420P for hardware accelerated pixel conversion right now
 
     return true;
 }
@@ -200,7 +188,6 @@ bool video_reader_seek_frame(VideoReaderState* state, int64_t ts) {
 }
 
 void video_reader_close(VideoReaderState* state) {
-    sws_freeContext(state->sws_scaler_ctx);
     avformat_close_input(&state->av_format_ctx);
     avformat_free_context(state->av_format_ctx);
     av_frame_free(&state->av_frame);

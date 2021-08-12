@@ -1,7 +1,99 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <GLFW/glfw3.h>
+#include <assert.h>
 #include "video_reader.hpp"
+
+
+// Fragment shader program takes three textures:
+// Ytex, Utex and Vtex which contain the Y U and V
+// components of a video frame respectively, and
+// runs the color conversion and returns the RGB
+// components.
+
+static const char* FRAG_SHADER_SRC =
+    "uniform sampler2D Ytex;\n"
+    "uniform sampler2D Utex,Vtex;\n"
+    "void main(void) {\n"
+    "  float nx,ny,r,g,b,y,u,v;\n"
+    "  nx=gl_TexCoord[0].x;\n"
+    "  ny=576.0-gl_TexCoord[0].y;\n"
+    "  y=texture2D(Ytex,vec2(nx, 1.0 - ny)).r;\n"
+    "  u=texture2D(Utex,vec2(nx, 1.0 - ny)).r;\n"
+    "  v=texture2D(Vtex,vec2(nx, 1.0 - ny)).r;\n"
+
+    "  y=1.1643*(y-0.0625);\n"
+    "  u=u-0.5;\n"
+    "  v=v-0.5;\n"
+
+    "  r=y+1.5958*v;\n"
+    "  g=y-0.39173*u-0.81290*v;\n"
+    "  b=y+2.017*u;\n"
+
+    "  gl_FragColor=vec4(r,g,b,1.0);\n"
+    "}\n"
+;
+
+static void init_hwaccel_yuv_2_rgb(GLuint* tex_y, GLuint* tex_u, GLuint* tex_v) {
+
+    // Create YUV conversion program, frag_shader & compile
+    GLuint program = glCreateProgram();
+    GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(frag_shader, 1, &FRAG_SHADER_SRC, NULL);
+    glCompileShader(frag_shader);
+
+    {
+        constexpr int LEN = 32768;
+        char* str = (char*)malloc(LEN);
+        GLsizei len;
+        glGetShaderInfoLog(frag_shader, LEN, &len, str);
+        if (len > 0) {
+            printf("Shader compile log: %s\n", str);
+        }
+        free(str);
+    }
+
+    glAttachShader(program, frag_shader);
+    glLinkProgram(program);
+    {
+        constexpr int LEN = 32768;
+        char* str = (char*)malloc(LEN);
+        GLsizei len;
+        glGetProgramInfoLog(program, LEN, &len, str);
+        if (len > 0) {
+            printf("Program link log: %s\n", str);
+        }
+        free(str);
+    }
+
+    glUseProgram(program);
+
+    // Prepare the three textures
+    GLuint tex_handles[3] = { GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2 };
+    GLint uniform_locs[3] = {
+        glGetUniformLocation(program, "Ytex"),
+        glGetUniformLocation(program, "Utex"),
+        glGetUniformLocation(program, "Vtex")
+    };
+    for (int i = 0; i < 3; ++i) {
+        assert(uniform_locs[i] != -1);
+        glActiveTexture(tex_handles[i]);
+        glUniform1i(uniform_locs[i], i);
+        glBindTexture(GL_TEXTURE_2D, tex_handles[i]);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    }
+
+    // Return the texture handles
+    *tex_y = tex_handles[0];
+    *tex_u = tex_handles[1];
+    *tex_v = tex_handles[2];
+
+}
 
 int main(int argc, const char** argv) {
     GLFWwindow* window;
@@ -22,30 +114,14 @@ int main(int argc, const char** argv) {
         printf("Couldn't open video file (make sure you set a video file that exists)\n");
         return 1;
     }
+    int frame_width = vr_state.width;
+    int frame_height = vr_state.height;
 
     glfwMakeContextCurrent(window);
 
-    // Generate texture
-    GLuint tex_handle;
-    glGenTextures(1, &tex_handle);
-    glBindTexture(GL_TEXTURE_2D, tex_handle);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    GLuint tex_y, tex_u, tex_v;
+    init_hwaccel_yuv_2_rgb(&tex_y, &tex_u, &tex_v);
 
-    // Allocate frame buffer
-    constexpr int ALIGNMENT = 128;
-    const int frame_width = vr_state.width;
-    const int frame_height = vr_state.height;
-    uint8_t* frame_data;
-    if (posix_memalign((void**)&frame_data, ALIGNMENT, frame_width * frame_height * 4) != 0) {
-        printf("Couldn't allocate frame buffer\n");
-        return 1;
-    }
-    
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -59,7 +135,7 @@ int main(int argc, const char** argv) {
 
         // Read a new frame and load it into texture
         int64_t pts;
-        if (!video_reader_read_frame(&vr_state, frame_data, &pts)) {
+        if (!video_reader_read_frame(&vr_state, &pts)) {
             printf("Couldn't load video frame\n");
             return 1;
         }
@@ -75,19 +151,21 @@ int main(int argc, const char** argv) {
             glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
         }
 
-        glBindTexture(GL_TEXTURE_2D, tex_handle);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame_width, frame_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame_data);
+        // Transfer Y U and V data to the GPU
+        glBindTexture(GL_TEXTURE_2D, tex_y);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width,   frame_height,   0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[0]);
+        glBindTexture(GL_TEXTURE_2D, tex_u);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width/2, frame_height/2, 0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[1]);
+        glBindTexture(GL_TEXTURE_2D, tex_v);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width/2, frame_height/2, 0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[2]);
 
         // Render whatever you want
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, tex_handle);
         glBegin(GL_QUADS);
             glTexCoord2d(0,0); glVertex2i(200, 200);
             glTexCoord2d(1,0); glVertex2i(200 + frame_width, 200);
             glTexCoord2d(1,1); glVertex2i(200 + frame_width, 200 + frame_height);
             glTexCoord2d(0,1); glVertex2i(200, 200 + frame_height);
         glEnd();
-        glDisable(GL_TEXTURE_2D);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

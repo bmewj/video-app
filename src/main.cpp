@@ -16,20 +16,20 @@ static const char* FRAG_SHADER_SRC =
     "uniform sampler2D Utex,Vtex;\n"
     "void main(void) {\n"
     "  float r,g,b,y,u,v;\n"
-    "  vec2 pos = vec2(gl_TexCoord[0].x, gl_TexCoord[0].y);\n"
-    "  y=texture2D(Ytex,pos).r;\n"
-    "  u=texture2D(Utex,pos).r;\n"
-    "  v=texture2D(Vtex,pos).r;\n"
+    "  vec2 pos = gl_TexCoord[0].xy;\n"
+    "  y = texture2D(Ytex, pos).r;\n"
+    "  u = texture2D(Utex, pos).r;\n"
+    "  v = texture2D(Vtex, pos).r;\n"
 
-    "  y=1.1643*(y-0.0625);\n"
-    "  u=u-0.5;\n"
-    "  v=v-0.5;\n"
+    "  y = 1.1643 * (y - 0.0625);\n"
+    "  u = u - 0.5;\n"
+    "  v = v - 0.5;\n"
 
-    "  r=y+1.5958*v;\n"
-    "  g=y-0.39173*u-0.81290*v;\n"
-    "  b=y+2.017*u;\n"
+    "  r = y + 1.5958 * v;\n"
+    "  g = y - 0.39173 * u - 0.81290 * v;\n"
+    "  b = y + 2.017 * u;\n"
 
-    "  gl_FragColor=vec4(r,g,b,1.0);\n"
+    "  gl_FragColor = vec4(r, g, b, 1.0);\n"
     "}\n"
 ;
 

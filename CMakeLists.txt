@@ -36,8 +36,8 @@ elseif(WIN32)
     set(CMAKE_EXE_LINKER_FLAGS "-std=gnu99 -static -static-libgcc -static-libstdc++ -mwindows")
 else()
     list(APPEND EXTRA_LIBS
-        "-lGL -lGLU -lX11"
+        "-lGL -lGLU -lX11 -lavformat -lavcodec -lswscale -lavutil -lavdevice -lz"
     )
 endif()
 
-target_link_libraries(video-app FFmpeg glfw ${EXTRA_LIBS})
+target_link_libraries(video-app FFmpeg glfw ${EXTRA_LIBS} avformat avutil)

@@ -51,7 +51,7 @@ int main(int argc, const char** argv) {
 
         // Set up orphographic projection
         int window_width, window_height;
-		glfwGetWindowSize(window, &window_width, &window_height);
+        glfwGetWindowSize(window, &window_width, &window_height);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glOrtho(0, window_width, window_height, 0, -1, 1);

@@ -11,15 +11,15 @@ int main(int argc, const char** argv) {
         return 1;
     }
 
-    window = glfwCreateWindow(800, 480, "Hello World", NULL, NULL);
-    if (!window) {
-        printf("Couldn't open window\n");
+    VideoReaderState vr_state;
+    if (!video_reader_open(&vr_state, "/Users/bmj/Desktop/SPACE ECHO.mov")){
+        printf("Couldn't open video file (make sure you set a video file that exists)\n");
         return 1;
     }
 
-    VideoReaderState vr_state;
-    if (!video_reader_open(&vr_state, "/Users/bmj/Desktop/SPACE ECHO.mov")) {
-        printf("Couldn't open video file (make sure you set a video file that exists)\n");
+    window = glfwCreateWindow(vr_state.width, vr_state.height, "Hello World", NULL, NULL);
+    if (!window) {
+        printf("Couldn't open window\n");
         return 1;
     }
 
@@ -51,7 +51,7 @@ int main(int argc, const char** argv) {
 
         // Set up orphographic projection
         int window_width, window_height;
-        glfwGetFramebufferSize(window, &window_width, &window_height);
+		glfwGetWindowSize(window, &window_width, &window_height);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glOrtho(0, window_width, window_height, 0, -1, 1);
@@ -82,10 +82,10 @@ int main(int argc, const char** argv) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, tex_handle);
         glBegin(GL_QUADS);
-            glTexCoord2d(0,0); glVertex2i(200, 200);
-            glTexCoord2d(1,0); glVertex2i(200 + frame_width, 200);
-            glTexCoord2d(1,1); glVertex2i(200 + frame_width, 200 + frame_height);
-            glTexCoord2d(0,1); glVertex2i(200, 200 + frame_height);
+            glTexCoord2d(0,0); glVertex2i(0, 0);
+            glTexCoord2d(1,0); glVertex2i(frame_width, 0);
+            glTexCoord2d(1,1); glVertex2i(frame_width, frame_height);
+            glTexCoord2d(0,1); glVertex2i(0, frame_height);
         glEnd();
         glDisable(GL_TEXTURE_2D);
 

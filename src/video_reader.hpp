@@ -18,6 +18,9 @@ struct VideoReaderState {
     int video_stream_index;
     AVFrame* av_frame;
     AVPacket* av_packet;
+    AVBufferRef* hw_device_ctx;
+    AVBufferRef* hw_frames_ctx;
+    AVFrame* hw_frame;
 };
 
 bool video_reader_open(VideoReaderState* state, const char* filename);

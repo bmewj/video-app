@@ -1,25 +1,43 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <GLFW/glfw3.h>
+
 #include <assert.h>
 #include "video_reader.hpp"
 
-
-// Fragment shader program takes three textures:
-// Ytex, Utex and Vtex which contain the Y U and V
-// components of a video frame respectively, and
-// runs the color conversion and returns the RGB
-// components.
+// Fragment shader program takes two textures:
+// Ytex and UVtex. Ytex contains the luminance
+// component of the video frame, while UVtex
+// contains both chrominance components.
+//
+// This format is known as NV12, and appears to
+// be the default output from VideoToolbox when
+// decoding H.264 video files.
+//
+// The internal format of the UVtex is a littel strange,
+// in part due to the fact that on the old OpenGL version
+// that is supported on Mac I can't use the GL_RG8 format
+// for loading texture data.
+//
+// The alternative I went with was to use the internal
+// format GL_LUMINANCE_ALPHA, which takes a 2-byte per
+// pixel format and drops the first byte into the r, g, and
+// b channel of the texture, and the second byte into the a
+// channel of the texture.
+//
+// Inside the fragment shader I am thus pulling out the U
+// value for a pixel by accessing .r and the V value by
+// accessing .a
 
 static const char* FRAG_SHADER_SRC =
     "uniform sampler2D Ytex;\n"
-    "uniform sampler2D Utex,Vtex;\n"
+    "uniform sampler2D UVtex;\n"
     "void main(void) {\n"
     "  float r,g,b,y,u,v;\n"
     "  vec2 pos = gl_TexCoord[0].xy;\n"
     "  y = texture2D(Ytex, pos).r;\n"
-    "  u = texture2D(Utex, pos).r;\n"
-    "  v = texture2D(Vtex, pos).r;\n"
+    "  u = texture2D(UVtex, pos).r;\n"
+    "  v = texture2D(UVtex, pos).a;\n"
 
     "  y = 1.1643 * (y - 0.0625);\n"
     "  u = u - 0.5;\n"
@@ -33,7 +51,7 @@ static const char* FRAG_SHADER_SRC =
     "}\n"
 ;
 
-static void init_hwaccel_yuv_2_rgb(GLuint* tex_y, GLuint* tex_u, GLuint* tex_v) {
+static void init_hwaccel_nv12_to_rgb(GLuint* tex_y, GLuint* tex_uv) {
 
     // Create YUV conversion program, frag_shader & compile
     GLuint program = glCreateProgram();
@@ -68,13 +86,12 @@ static void init_hwaccel_yuv_2_rgb(GLuint* tex_y, GLuint* tex_u, GLuint* tex_v) 
     glUseProgram(program);
 
     // Prepare the three textures
-    GLuint tex_handles[3] = { GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2 };
-    GLint uniform_locs[3] = {
+    GLuint tex_handles[2] = { GL_TEXTURE0, GL_TEXTURE1 };
+    GLint uniform_locs[2] = {
         glGetUniformLocation(program, "Ytex"),
-        glGetUniformLocation(program, "Utex"),
-        glGetUniformLocation(program, "Vtex")
+        glGetUniformLocation(program, "UVtex")
     };
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 2; ++i) {
         assert(uniform_locs[i] != -1);
         glActiveTexture(tex_handles[i]);
         glUniform1i(uniform_locs[i], i);
@@ -89,8 +106,7 @@ static void init_hwaccel_yuv_2_rgb(GLuint* tex_y, GLuint* tex_u, GLuint* tex_v) 
 
     // Return the texture handles
     *tex_y = tex_handles[0];
-    *tex_u = tex_handles[1];
-    *tex_v = tex_handles[2];
+    *tex_uv = tex_handles[1];
 
 }
 
@@ -102,7 +118,7 @@ int main(int argc, const char** argv) {
         return 1;
     }
 
-    window = glfwCreateWindow(800, 480, "Hello World", NULL, NULL);
+    window = glfwCreateWindow(960, 540, "Hello World", NULL, NULL);
     if (!window) {
         printf("Couldn't open window\n");
         return 1;
@@ -118,8 +134,8 @@ int main(int argc, const char** argv) {
 
     glfwMakeContextCurrent(window);
 
-    GLuint tex_y, tex_u, tex_v;
-    init_hwaccel_yuv_2_rgb(&tex_y, &tex_u, &tex_v);
+    GLuint tex_y, tex_uv;
+    init_hwaccel_nv12_to_rgb(&tex_y, &tex_uv);
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -147,23 +163,21 @@ int main(int argc, const char** argv) {
 
         double pt_in_seconds = pts * (double)vr_state.time_base.num / (double)vr_state.time_base.den;
         while (pt_in_seconds > glfwGetTime()) {
-            glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
+            glfwWaitEventsTimeout(0.1 * (pt_in_seconds - glfwGetTime()));
         }
 
-        // Transfer Y U and V data to the GPU
+        // Transfer Y and UV data to the GPU
         glBindTexture(GL_TEXTURE_2D, tex_y);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width,   frame_height,   0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[0]);
-        glBindTexture(GL_TEXTURE_2D, tex_u);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width/2, frame_height/2, 0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[1]);
-        glBindTexture(GL_TEXTURE_2D, tex_v);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width/2, frame_height/2, 0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[2]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame_width, frame_height, 0, GL_RED, GL_UNSIGNED_BYTE, vr_state.av_frame->data[0]);
+        glBindTexture(GL_TEXTURE_2D, tex_uv);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, frame_width/2, frame_height/2, 0, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, vr_state.av_frame->data[1]);
 
         // Render whatever you want
         glBegin(GL_QUADS);
-            glTexCoord2d(0,0); glVertex2i(200, 200);
-            glTexCoord2d(1,0); glVertex2i(200 + frame_width, 200);
-            glTexCoord2d(1,1); glVertex2i(200 + frame_width, 200 + frame_height);
-            glTexCoord2d(0,1); glVertex2i(200, 200 + frame_height);
+            glTexCoord2d(0,0); glVertex2i(0, 0);
+            glTexCoord2d(1,0); glVertex2i(frame_width, 0);
+            glTexCoord2d(1,1); glVertex2i(frame_width, frame_height);
+            glTexCoord2d(0,1); glVertex2i(0, frame_height);
         glEnd();
 
         glfwSwapBuffers(window);

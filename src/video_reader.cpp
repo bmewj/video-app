@@ -1,5 +1,6 @@
 #include "video_reader.hpp"
 #include <assert.h>
+#include <VideoToolbox/VideoToolbox.h>
 
 // av_err2str returns a temporary array. This doesn't work in gcc.
 // This function can be used as a replacement for av_err2str.
@@ -9,16 +10,11 @@ static const char* av_make_error(int errnum) {
     return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
 }
 
-static AVPixelFormat correct_for_deprecated_pixel_format(AVPixelFormat pix_fmt) {
-    // Fix swscaler deprecated pixel format warning
-    // (YUVJ has been deprecated, change pixel format to regular YUV)
-    switch (pix_fmt) {
-        case AV_PIX_FMT_YUVJ420P: return AV_PIX_FMT_YUV420P;
-        case AV_PIX_FMT_YUVJ422P: return AV_PIX_FMT_YUV422P;
-        case AV_PIX_FMT_YUVJ444P: return AV_PIX_FMT_YUV444P;
-        case AV_PIX_FMT_YUVJ440P: return AV_PIX_FMT_YUV440P;
-        default:                  return pix_fmt;
+static AVPixelFormat get_format_callback(AVCodecContext* ctx, const AVPixelFormat* formats) {
+    for (int i = 0; formats[i] != AV_PIX_FMT_NONE; ++i) {
+        if (formats[i] == AV_PIX_FMT_VIDEOTOOLBOX) return AV_PIX_FMT_VIDEOTOOLBOX;
     }
+    return formats[0];
 }
 
 bool video_reader_open(VideoReaderState* state, const char* filename) {
@@ -32,6 +28,20 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
     auto& video_stream_index = state->video_stream_index;
     auto& av_frame = state->av_frame;
     auto& av_packet = state->av_packet;
+    auto& hw_device_ctx = state->hw_device_ctx;
+    auto& hw_frames_ctx = state->hw_frames_ctx;
+    auto& hw_frame = state->hw_frame;
+    
+    // Init hardware decoder
+    if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VIDEOTOOLBOX, NULL, NULL, 0) != 0) {
+        printf("Couldn't init VideoToolbox.\n");
+        return false;
+    }
+    hw_frames_ctx = av_hwframe_ctx_alloc(hw_device_ctx);
+    if (!hw_frames_ctx) {
+        printf("Couldn't init VideoToolbox frame.\n");
+        return false;
+    }
 
     // Open the file using libavformat
     av_format_ctx = avformat_alloc_context();
@@ -51,7 +61,7 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
     AVCodec* av_codec;
     for (int i = 0; i < av_format_ctx->nb_streams; ++i) {
         av_codec_params = av_format_ctx->streams[i]->codecpar;
-        av_codec = avcodec_find_decoder(av_codec_params->codec_id);
+        av_codec = const_cast<AVCodec*>(avcodec_find_decoder(av_codec_params->codec_id));
         if (!av_codec) {
             continue;
         }
@@ -78,6 +88,9 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
         printf("Couldn't initialize AVCodecContext\n");
         return false;
     }
+    av_codec_ctx->get_format = &get_format_callback;
+    av_codec_ctx->hw_device_ctx = hw_device_ctx;
+    av_codec_ctx->hw_frames_ctx = hw_frames_ctx;
     if (avcodec_open2(av_codec_ctx, av_codec, NULL) < 0) {
         printf("Couldn't open codec\n");
         return false;
@@ -85,6 +98,11 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
 
     av_frame = av_frame_alloc();
     if (!av_frame) {
+        printf("Couldn't allocate AVFrame\n");
+        return false;
+    }
+    hw_frame = av_frame_alloc();
+    if (!hw_frame) {
         printf("Couldn't allocate AVFrame\n");
         return false;
     }
@@ -107,6 +125,7 @@ bool video_reader_read_frame(VideoReaderState* state, int64_t* pts) {
     auto& video_stream_index = state->video_stream_index;
     auto& av_frame = state->av_frame;
     auto& av_packet = state->av_packet;
+    auto& hw_frame = state->hw_frame;
 
     // Decode one frame
     int response;
@@ -122,7 +141,7 @@ bool video_reader_read_frame(VideoReaderState* state, int64_t* pts) {
             return false;
         }
 
-        response = avcodec_receive_frame(av_codec_ctx, av_frame);
+        response = avcodec_receive_frame(av_codec_ctx, hw_frame);
         if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
             av_packet_unref(av_packet);
             continue;
@@ -135,11 +154,17 @@ bool video_reader_read_frame(VideoReaderState* state, int64_t* pts) {
         break;
     }
 
-    *pts = av_frame->pts;
+    if (av_hwframe_transfer_data(av_frame, hw_frame, 0) != 0) {
+        printf("Failed to receive frame from VideoToolbox.\n");
+        return false;
+    }
+    
+    // NOTE: Right now I'm only supporting AV_PIX_FMT_NV12, which
+    // is the format I'm receiving from VideoToolbox when decoding
+    // H.264 video files.
+    assert((AVPixelFormat)av_frame->format == AV_PIX_FMT_NV12);
 
-    auto source_pix_fmt = correct_for_deprecated_pixel_format(av_codec_ctx->pix_fmt);
-    assert(source_pix_fmt == AV_PIX_FMT_YUV420P);
-    // Can only support YUV420P for hardware accelerated pixel conversion right now
+    *pts = av_frame->pts;
 
     return true;
 }
